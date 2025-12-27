@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis V de Aiken - Juicio de Expertos</title>
+    <title>Validez de Contenido - V de Aiken</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- SheetJS para Exportar a Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: 'Outfit', sans-serif;
@@ -18,360 +19,496 @@
             background: rgba(255, 255, 255, 0.8);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tab-btn.active {
+            background: white;
+            color: #4f46e5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .gradient-text {
             background: linear-gradient(90deg, #4f46e5, #06b6d4);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        .bar {
-            fill: url(#barGradient);
-            transition: all 0.3s ease;
-            cursor: pointer;
+        .btn-export {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .bar:hover {
-            filter: brightness(1.1);
-            opacity: 0.8;
-        }
-        .axis-label {
-            font-size: 10px;
-            fill: #64748b;
-            font-weight: 500;
-        }
-        .grid-line {
-            stroke: #e2e8f0;
-            stroke-width: 1px;
-            stroke-dasharray: 4;
-        }
-        #tooltip {
-            position: absolute;
-            background: rgba(15, 23, 42, 0.9);
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s;
-            z-index: 50;
+        .btn-export:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
         }
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div id="tooltip"></div>
-    <div class="max-w-6xl mx-auto">
+    <div class="max-w-7xl mx-auto">
         <!-- Header -->
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">Reporte de Validez de Contenido</h1>
-            <p class="text-slate-600 text-lg">Coeficiente V de Aiken - Juicio de 3 Expertos</p>
-            <div class="mt-4 flex justify-center gap-4">
-                <span class="px-4 py-2 glass rounded-full text-sm font-medium text-slate-700">Expertos: 3</span>
-                <span class="px-4 py-2 glass rounded-full text-sm font-medium text-slate-700">Criterio: > 0.70 Valido</span>
+        <header class="mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="text-center md:text-left">
+                <h1 class="text-4xl font-bold gradient-text mb-1">Validez de Contenido</h1>
+                <p class="text-slate-500 font-medium">Análisis Estadístico - Coeficiente V de Aiken</p>
             </div>
+            <button onclick="exportToExcel()" class="btn-export flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Exportar a Excel
+            </button>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            <!-- Estadísticas Generales -->
-            <div class="lg:col-span-1 flex flex-col gap-6">
-                <div class="glass p-6 rounded-3xl">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen</h3>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-500">Total Ítems</span>
-                            <span class="text-2xl font-bold text-indigo-600">10</span>
+        <!-- Navigation Tabs -->
+        <div class="flex justify-center mb-8">
+            <div class="glass p-1.5 rounded-2xl flex gap-1">
+                <button onclick="showTab('resumen')" id="btn-resumen" class="tab-btn active px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 text-slate-500 hover:text-slate-700">
+                    Matriz General (Aiken)
+                </button>
+                <button onclick="showTab('expertos')" id="btn-expertos" class="tab-btn px-6 py-2.5 rounded-xl font-bold text-sm transition-all duration-300 text-slate-500 hover:text-slate-700">
+                    Detalle por Experto
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab: MATRIZ GENERAL -->
+        <div id="resumen" class="tab-content active animate-in fade-in duration-500">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="glass p-6 rounded-3xl text-center">
+                        <div class="text-[10px] text-slate-400 uppercase font-black tracking-widest mb-1">Coeficiente Global</div>
+                        <div class="text-4xl font-black text-indigo-600 mb-2">0.963</div>
+                        <div class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-black uppercase">
+                            n = 3 Expertos
                         </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-500">V Promedio</span>
-                            <span class="text-2xl font-bold text-cyan-500">0.783</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-slate-500">Válidos</span>
-                            <span class="text-2xl font-bold text-emerald-500">7</span>
+                    </div>
+                    
+                    <div class="glass p-6 rounded-3xl">
+                        <h4 class="font-bold text-slate-800 mb-4 text-xs uppercase tracking-widest">Interpretación</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                <span class="text-xs text-slate-600">≥ 0.70 : Válido</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="w-2 h-2 rounded-full bg-rose-500"></div>
+                                <span class="text-xs text-slate-600">< 0.70 : Revisar</span>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="glass p-6 rounded-3xl">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribución de V</h3>
-                    <div id="vD3Chart" class="w-full"></div>
-                </div>
-            </div>
-
-            <!-- Tabla de Resultados -->
-            <div class="lg:col-span-2">
-                <div class="glass overflow-hidden rounded-3xl">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-slate-50/50">
-                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100">Ítem</th>
-                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wider text-xs">V de Aiken</th>
-                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wider text-xs">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 1</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 2</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 83.33%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.8333</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 3</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 50.0%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.5</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
-                                        Revisar
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 4</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 5</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 100.0%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">1.0</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 6</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 66.67%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.6667</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
-                                        Revisar
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 7</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 8</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 33.33%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.3333</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
-                                        Revisar
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 9</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                            <tr class="hover:bg-white/40 transition-colors">
-                                <td class="p-4 font-semibold text-slate-800"># 10</td>
-                                <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
-                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 83.33%"></div>
-                                        </div>
-                                        <span class="font-mono font-bold text-slate-700">0.8333</span>
-                                    </div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
-                                        Aceptable
-                                    </span>
-                                </td>
-                            </tr>
-                            
-                        </tbody>
-                    </table>
+                <div class="lg:col-span-3">
+                    <div class="glass overflow-hidden rounded-3xl">
+                        <div class="overflow-x-auto">
+                            <table id="tableMain" class="w-full text-left">
+                                <thead>
+                                    <tr class="bg-slate-50/50">
+                                        <th class="p-5 font-bold text-slate-700 text-[11px] uppercase tracking-wider">Indicador Evaluado</th>
+                                        <th class="p-5 font-bold text-slate-700 text-[11px] uppercase tracking-wider text-center">Claridad</th><th class="p-5 font-bold text-slate-700 text-[11px] uppercase tracking-wider text-center">Pertinencia</th><th class="p-5 font-bold text-slate-700 text-[11px] uppercase tracking-wider text-center">Relevancia</th>
+                                        <th class="p-5 font-bold text-indigo-700 text-[11px] uppercase tracking-wider text-center">V Global</th>
+                                        <th class="p-5 font-bold text-slate-700 text-[11px] uppercase tracking-wider text-center">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    <tr class="hover:bg-white/40 border-b border-slate-50 transition-colors">
+                                        <td class="p-5">
+                                            <div class="font-bold text-slate-800">Porcentaje de ocupación</div>
+                                        </td>
+                                        <td class="p-5 text-center font-mono font-bold text-slate-500">0.8889</td><td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td><td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td>
+                                        <td class="p-5 text-center">
+                                            <span class="font-mono font-black text-indigo-600 text-lg">0.963</span>
+                                        </td>
+                                        <td class="p-5 text-center">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700">
+                                                Aceptable
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr class="hover:bg-white/40 border-b border-slate-50 transition-colors">
+                                        <td class="p-5">
+                                            <div class="font-bold text-slate-800">Días promedio de anticipación</div>
+                                        </td>
+                                        <td class="p-5 text-center font-mono font-bold text-slate-500">0.8889</td><td class="p-5 text-center font-mono font-bold text-slate-500">0.8889</td><td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td>
+                                        <td class="p-5 text-center">
+                                            <span class="font-mono font-black text-indigo-600 text-lg">0.9259</span>
+                                        </td>
+                                        <td class="p-5 text-center">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700">
+                                                Aceptable
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    
+                                    <tr class="hover:bg-white/40 border-b border-slate-50 transition-colors">
+                                        <td class="p-5">
+                                            <div class="font-bold text-slate-800">Porcentaje de no-shows</div>
+                                        </td>
+                                        <td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td><td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td><td class="p-5 text-center font-mono font-bold text-slate-500">1.0</td>
+                                        <td class="p-5 text-center">
+                                            <span class="font-mono font-black text-indigo-600 text-lg">1.0</span>
+                                        </td>
+                                        <td class="p-5 text-center">
+                                            <span class="px-3 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-700">
+                                                Aceptable
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Footer Info -->
-        <footer class="text-center text-slate-400 text-sm mt-12 pb-8">
-            <p>Generado con Python & D3.js - Antigravity AI</p>
+        <!-- Tab: DETALLE POR EXPERTO -->
+        <div id="expertos" class="tab-content animate-in slide-in-from-bottom-4 duration-500">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-center">
+                
+                <div class="glass p-6 rounded-3xl border-t-4 border-indigo-500">
+                    <div class="flex flex-col items-center gap-2 mb-6 text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl font-black">
+                            1
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-lg">Dr. Juan Pérez (Experto 1)</h3>
+                        <div class="h-0.5 w-12 bg-indigo-100"></div>
+                    </div>
+                    <div class="space-y-4">
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de ocupación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Días promedio de anticipación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">3</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de no-shows</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                <div class="glass p-6 rounded-3xl border-t-4 border-indigo-500">
+                    <div class="flex flex-col items-center gap-2 mb-6 text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl font-black">
+                            2
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-lg">Mg. María García (Experta 2)</h3>
+                        <div class="h-0.5 w-12 bg-indigo-100"></div>
+                    </div>
+                    <div class="space-y-4">
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de ocupación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Días promedio de anticipación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de no-shows</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+                <div class="glass p-6 rounded-3xl border-t-4 border-indigo-500">
+                    <div class="flex flex-col items-center gap-2 mb-6 text-center">
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-2xl font-black">
+                            3
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-lg">Ing. Carlos Ruiz (Experto 3)</h3>
+                        <div class="h-0.5 w-12 bg-indigo-100"></div>
+                    </div>
+                    <div class="space-y-4">
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de ocupación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">3</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Días promedio de anticipación</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">3</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white/40 p-3 rounded-2xl border border-white/50">
+                            <div class="text-[10px] font-black text-indigo-400 mb-2 uppercase tracking-tighter">Porcentaje de no-shows</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Claridad</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Pertinencia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                                <div>
+                                    <div class="text-[8px] text-slate-400 font-black uppercase">Relevancia</div>
+                                    <div class="text-lg font-black text-slate-700">4</div>
+                                </div>
+                                
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 pt-8 border-t border-slate-200 text-center">
+            <p class="text-slate-400 text-xs font-bold uppercase tracking-widest">
+                Juicio de Expertos - Análisis V de Aiken © 2025
+            </p>
         </footer>
     </div>
 
     <script>
-        const data = [{"item": 1, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 2, "v_aiken": 0.8333, "S": 10, "promedio": 4.33, "status": "Aceptable"}, {"item": 3, "v_aiken": 0.5, "S": 6, "promedio": 3.0, "status": "Revisar"}, {"item": 4, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 5, "v_aiken": 1.0, "S": 12, "promedio": 5.0, "status": "Aceptable"}, {"item": 6, "v_aiken": 0.6667, "S": 8, "promedio": 3.67, "status": "Revisar"}, {"item": 7, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 8, "v_aiken": 0.3333, "S": 4, "promedio": 2.33, "status": "Revisar"}, {"item": 9, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 10, "v_aiken": 0.8333, "S": 10, "promedio": 4.33, "status": "Aceptable"}];
-        const margin = {top: 20, right: 20, bottom: 40, left: 40};
-        const container = document.getElementById('vD3Chart');
-        const width = container.offsetWidth - margin.left - margin.right;
-        const height = 250 - margin.top - margin.bottom;
+        const expertosData = [{"nombre": "Dr. Juan P\u00e9rez (Experto 1)", "evaluaciones": {"Porcentaje de ocupaci\u00f3n": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}, "D\u00edas promedio de anticipaci\u00f3n": {"Claridad": 3, "Pertinencia": 4, "Relevancia": 4}, "Porcentaje de no-shows": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}}}, {"nombre": "Mg. Mar\u00eda Garc\u00eda (Experta 2)", "evaluaciones": {"Porcentaje de ocupaci\u00f3n": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}, "D\u00edas promedio de anticipaci\u00f3n": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}, "Porcentaje de no-shows": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}}}, {"nombre": "Ing. Carlos Ruiz (Experto 3)", "evaluaciones": {"Porcentaje de ocupaci\u00f3n": {"Claridad": 3, "Pertinencia": 4, "Relevancia": 4}, "D\u00edas promedio de anticipaci\u00f3n": {"Claridad": 4, "Pertinencia": 3, "Relevancia": 4}, "Porcentaje de no-shows": {"Claridad": 4, "Pertinencia": 4, "Relevancia": 4}}}];
+        const resultadosData = [{"item_num": 1, "nombre": "Porcentaje de ocupaci\u00f3n", "criterios": {"Claridad": 0.8889, "Pertinencia": 1.0, "Relevancia": 1.0}, "v_aiken_global": 0.963, "status": "Aceptable"}, {"item_num": 2, "nombre": "D\u00edas promedio de anticipaci\u00f3n", "criterios": {"Claridad": 0.8889, "Pertinencia": 0.8889, "Relevancia": 1.0}, "v_aiken_global": 0.9259, "status": "Aceptable"}, {"item_num": 3, "nombre": "Porcentaje de no-shows", "criterios": {"Claridad": 1.0, "Pertinencia": 1.0, "Relevancia": 1.0}, "v_aiken_global": 1.0, "status": "Aceptable"}];
+        const criterios = ["Claridad", "Pertinencia", "Relevancia"];
 
-        const svg = d3.select("#vD3Chart")
-            .append("svg")
-            .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-            .append("g")
-            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            document.getElementById('btn-' + tabId).classList.add('active');
+        }
 
-        // Gradient
-        const defs = svg.append("defs");
-        const gradient = defs.append("linearGradient")
-            .attr("id", "barGradient")
-            .attr("x1", "0%").attr("y1", "100%")
-            .attr("x2", "0%").attr("y2", "0%");
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            const nExp = expertosData.length;
+            const nItems = resultadosData.length;
+            const critCount = criterios.length;
+            
+            // --- HOJA 1: DATOS DE ENTRADA (TRANSCRIPCIÓN) ---
+            // Esta hoja va primero porque la Matriz la referencia
+            const ws_datos_data = [
+                ["TRANSCRIPCIÓN DE CUESTIONARIOS - EDITABLE"],
+                ["Modifique los valores aquí y la Matriz se actualizará"],
+                [],
+                ["Indicador", "Criterio", ...expertosData.map(e => e.nombre)]
+            ];
 
-        gradient.append("stop").attr("offset", "0%").attr("stop-color", "#6366f1");
-        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#06b6d4");
+            // Poblar datos de entrada (filas desde la 5 en adelante)
+            resultadosData.forEach((res, resIdx) => {
+                criterios.forEach((crit, critIdx) => {
+                    const row = [res.nombre, crit];
+                    expertosData.forEach(exp => {
+                        row.push(exp.evaluaciones[res.nombre][crit]);
+                    });
+                    ws_datos_data.push(row);
+                });
+            });
 
-        const x = d3.scaleBand()
-            .range([0, width])
-            .domain(data.map(d => d.item))
-            .padding(0.3);
+            const ws_datos = XLSX.utils.aoa_to_sheet(ws_datos_data);
+            XLSX.utils.book_append_sheet(wb, ws_datos, "Datos");
 
-        const y = d3.scaleLinear()
-            .domain([0, 1])
-            .range([height, 0]);
+            // --- HOJA 2: MATRIZ CON FÓRMULAS ---
+            const ws_matriz_data = [
+                ["CALCULADORA DINÁMICA V DE AIKEN"],
+                ["N° Expertos:", nExp, "", "Fórmula V = S / [n × (c-1)]"],
+                ["Escala Mín:", 1, "", "S = Σ(ri) - n×Mín"],
+                ["Escala Máx:", 4],
+                [],
+                ["Indicador", "Criterio", "Suma Notas", "S (Σri - n×Mín)", "V de Aiken", "Estado"]
+            ];
 
-        // Grid lines
-        svg.append("g")
-            .attr("class", "grid")
-            .call(d3.axisLeft(y)
-                .ticks(5)
-                .tickSize(-width)
-                .tickFormat("")
-            )
-            .selectAll(".tick line")
-            .attr("class", "grid-line");
+            const ws_matriz = XLSX.utils.aoa_to_sheet(ws_matriz_data);
 
-        svg.append("g")
-            .attr("transform", `translate(0, ${height})`)
-            .call(d3.axisBottom(x).tickSize(0))
-            .attr("class", "axis-label")
-            .select(".domain").remove();
+            // Añadir fórmulas fila por fila
+            let matrizRow = 7; // Fila 7 en Excel (después del encabezado)
+            let datosRow = 5;  // Fila 5 en la hoja Datos (primera fila de datos)
+            
+            for (let i = 0; i < nItems * critCount; i++) {
+                // Columnas en Datos: A=Indicador, B=Criterio, C,D,E...=Expertos
+                const colInicioExp = "C";
+                const colFinExp = String.fromCharCode(67 + nExp - 1); // C + (nExp-1)
+                
+                // Fórmulas
+                const fIndicador = `Datos!A${datosRow}`;
+                const fCriterio = `Datos!B${datosRow}`;
+                const fSumaNotas = `SUM(Datos!${colInicioExp}${datosRow}:${colFinExp}${datosRow})`;
+                const fS = `C${matrizRow} - ($B$2 * $B$3)`;  // SumaNotas - (nExp * Min)
+                const fV = `D${matrizRow} / ($B$2 * ($B$4 - $B$3))`;  // S / (n * (Max-Min))
+                const fEstado = `IF(E${matrizRow}>=0.7,"ACEPTABLE","REVISAR")`;
 
-        svg.append("g")
-            .call(d3.axisLeft(y).ticks(5).tickSize(0))
-            .attr("class", "axis-label")
-            .select(".domain").remove();
+                // Insertar fila con fórmulas
+                XLSX.utils.sheet_add_aoa(ws_matriz, [[
+                    { f: fIndicador },
+                    { f: fCriterio },
+                    { f: fSumaNotas },
+                    { f: fS },
+                    { f: fV },
+                    { f: fEstado }
+                ]], { origin: "A" + matrizRow });
 
-        const tooltip = d3.select("#tooltip");
+                matrizRow++;
+                datosRow++;
+            }
 
-        svg.selectAll(".bar")
-            .data(data)
-            .enter().append("rect")
-            .attr("class", "bar")
-            .attr("rx", 6)
-            .attr("x", d => x(d.item))
-            .attr("width", x.bandwidth())
-            .attr("y", height)
-            .attr("height", 0)
-            .on("mouseover", (event, d) => {
-                tooltip.style("opacity", 1)
-                       .html(`Ítem #${d.item}<br>V: ${d.v_aiken}`);
-            })
-            .on("mousemove", (event) => {
-                tooltip.style("left", (event.pageX + 10) + "px")
-                       .style("top", (event.pageY - 20) + "px");
-            })
-            .on("mouseout", () => tooltip.style("opacity", 0))
-            .transition()
-            .duration(800)
-            .attr("y", d => y(d.v_aiken))
-            .attr("height", d => height - y(d.v_aiken));
+            // Añadir fila de PROMEDIO GLOBAL al final
+            const ultimaFila = matrizRow;
+            XLSX.utils.sheet_add_aoa(ws_matriz, [[
+                "PROMEDIO GLOBAL", "", "", "", 
+                { f: `AVERAGE(E7:E${ultimaFila - 1})` },
+                { f: `IF(E${ultimaFila}>=0.7,"VÁLIDO","REVISAR")` }
+            ]], { origin: "A" + ultimaFila });
 
+            XLSX.utils.book_append_sheet(wb, ws_matriz, "Matriz Aiken");
+            XLSX.writeFile(wb, "Analisis_V_Aiken_Dinamico.xlsx");
+        }
     </script>
 </body>
 </html>
