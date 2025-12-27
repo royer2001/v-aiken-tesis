@@ -1,0 +1,378 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Análisis V de Aiken - Juicio de Expertos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #4f46e5, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .bar {
+            fill: url(#barGradient);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .bar:hover {
+            filter: brightness(1.1);
+            opacity: 0.8;
+        }
+        .axis-label {
+            font-size: 10px;
+            fill: #64748b;
+            font-weight: 500;
+        }
+        .grid-line {
+            stroke: #e2e8f0;
+            stroke-width: 1px;
+            stroke-dasharray: 4;
+        }
+        #tooltip {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div id="tooltip"></div>
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl md:text-5xl font-bold gradient-text mb-4">Reporte de Validez de Contenido</h1>
+            <p class="text-slate-600 text-lg">Coeficiente V de Aiken - Juicio de 3 Expertos</p>
+            <div class="mt-4 flex justify-center gap-4">
+                <span class="px-4 py-2 glass rounded-full text-sm font-medium text-slate-700">Expertos: 3</span>
+                <span class="px-4 py-2 glass rounded-full text-sm font-medium text-slate-700">Criterio: > 0.70 Valido</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- Estadísticas Generales -->
+            <div class="lg:col-span-1 flex flex-col gap-6">
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Resumen</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">Total Ítems</span>
+                            <span class="text-2xl font-bold text-indigo-600">10</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">V Promedio</span>
+                            <span class="text-2xl font-bold text-cyan-500">0.783</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-500">Válidos</span>
+                            <span class="text-2xl font-bold text-emerald-500">7</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass p-6 rounded-3xl">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Distribución de V</h3>
+                    <div id="vD3Chart" class="w-full"></div>
+                </div>
+            </div>
+
+            <!-- Tabla de Resultados -->
+            <div class="lg:col-span-2">
+                <div class="glass overflow-hidden rounded-3xl">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50">
+                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100">Ítem</th>
+                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wider text-xs">V de Aiken</th>
+                                <th class="p-4 font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wider text-xs">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 1</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 2</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 83.33%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.8333</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 3</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 50.0%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.5</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
+                                        Revisar
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 4</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 5</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 100.0%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">1.0</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 6</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 66.67%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.6667</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
+                                        Revisar
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 7</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 8</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 33.33%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.3333</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-rose-700 bg-rose-100">
+                                        Revisar
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 9</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 91.67%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.9167</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                            <tr class="hover:bg-white/40 transition-colors">
+                                <td class="p-4 font-semibold text-slate-800"># 10</td>
+                                <td class="p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-full bg-slate-200 rounded-full h-2 max-w-[100px]">
+                                            <div class="bg-indigo-500 h-2 rounded-full" style="width: 83.33%"></div>
+                                        </div>
+                                        <span class="font-mono font-bold text-slate-700">0.8333</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold text-emerald-700 bg-emerald-100">
+                                        Aceptable
+                                    </span>
+                                </td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Info -->
+        <footer class="text-center text-slate-400 text-sm mt-12 pb-8">
+            <p>Generado con Python & D3.js - Antigravity AI</p>
+        </footer>
+    </div>
+
+    <script>
+        const data = [{"item": 1, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 2, "v_aiken": 0.8333, "S": 10, "promedio": 4.33, "status": "Aceptable"}, {"item": 3, "v_aiken": 0.5, "S": 6, "promedio": 3.0, "status": "Revisar"}, {"item": 4, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 5, "v_aiken": 1.0, "S": 12, "promedio": 5.0, "status": "Aceptable"}, {"item": 6, "v_aiken": 0.6667, "S": 8, "promedio": 3.67, "status": "Revisar"}, {"item": 7, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 8, "v_aiken": 0.3333, "S": 4, "promedio": 2.33, "status": "Revisar"}, {"item": 9, "v_aiken": 0.9167, "S": 11, "promedio": 4.67, "status": "Aceptable"}, {"item": 10, "v_aiken": 0.8333, "S": 10, "promedio": 4.33, "status": "Aceptable"}];
+        const margin = {top: 20, right: 20, bottom: 40, left: 40};
+        const container = document.getElementById('vD3Chart');
+        const width = container.offsetWidth - margin.left - margin.right;
+        const height = 250 - margin.top - margin.bottom;
+
+        const svg = d3.select("#vD3Chart")
+            .append("svg")
+            .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+            .append("g")
+            .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        // Gradient
+        const defs = svg.append("defs");
+        const gradient = defs.append("linearGradient")
+            .attr("id", "barGradient")
+            .attr("x1", "0%").attr("y1", "100%")
+            .attr("x2", "0%").attr("y2", "0%");
+
+        gradient.append("stop").attr("offset", "0%").attr("stop-color", "#6366f1");
+        gradient.append("stop").attr("offset", "100%").attr("stop-color", "#06b6d4");
+
+        const x = d3.scaleBand()
+            .range([0, width])
+            .domain(data.map(d => d.item))
+            .padding(0.3);
+
+        const y = d3.scaleLinear()
+            .domain([0, 1])
+            .range([height, 0]);
+
+        // Grid lines
+        svg.append("g")
+            .attr("class", "grid")
+            .call(d3.axisLeft(y)
+                .ticks(5)
+                .tickSize(-width)
+                .tickFormat("")
+            )
+            .selectAll(".tick line")
+            .attr("class", "grid-line");
+
+        svg.append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(x).tickSize(0))
+            .attr("class", "axis-label")
+            .select(".domain").remove();
+
+        svg.append("g")
+            .call(d3.axisLeft(y).ticks(5).tickSize(0))
+            .attr("class", "axis-label")
+            .select(".domain").remove();
+
+        const tooltip = d3.select("#tooltip");
+
+        svg.selectAll(".bar")
+            .data(data)
+            .enter().append("rect")
+            .attr("class", "bar")
+            .attr("rx", 6)
+            .attr("x", d => x(d.item))
+            .attr("width", x.bandwidth())
+            .attr("y", height)
+            .attr("height", 0)
+            .on("mouseover", (event, d) => {
+                tooltip.style("opacity", 1)
+                       .html(`Ítem #${d.item}<br>V: ${d.v_aiken}`);
+            })
+            .on("mousemove", (event) => {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                       .style("top", (event.pageY - 20) + "px");
+            })
+            .on("mouseout", () => tooltip.style("opacity", 0))
+            .transition()
+            .duration(800)
+            .attr("y", d => y(d.v_aiken))
+            .attr("height", d => height - y(d.v_aiken));
+
+    </script>
+</body>
+</html>
+    
